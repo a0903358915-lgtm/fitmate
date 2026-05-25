@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>原老大的健身记录</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="健身记录">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+:root {
+  --bg: #0f0f0f; --card: #1a1a1a; --accent: #ff4757;
+  --text: #e0e0e0; --sub: #888; --border: #2a2a2a;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; max-width: 500px; margin: 0 auto;
+  padding: 20px;
+}
+h1 { font-size: 1.8rem; text-align: center; margin-bottom: 20px; }
+h1 span { color: var(--accent); }
+
+/* 导航 */
+nav {
+  display: flex; gap: 6px; margin-bottom: 20px;
+  overflow-x: auto; padding-bottom: 4px;
+}
+nav button {
+  flex-shrink: 0; padding: 10px 16px; border: none;
+  background: var(--card); color: var(--sub); border-radius: 10px;
+  font-size: 0.85rem; cursor: pointer; transition: .2s;
+  white-space: nowrap;
+}
+nav button.active { background: var(--accent); color: #fff; }
+
+.page { display: none; }
+.page.show { display: block; }
+
+/* 卡片 */
+.card {
+  background: var(--card); border-radius: 16px;
+  padding: 20px; margin-bottom: 16px;
+}
+.card h2 { font-size: 1.1rem; margin-bottom: 14px; }
+
+/* 计时器区 */
+.timer-display {
+  font-size: 5rem; text-align: center; font-weight: 700;
+  font-variant-numeric: tabular-nums; margin: 20px 0;
+  letter-spacing: 4px;
+}
+.timer-display.running { color: var(--accent); }
+.timer-display.rest { color: #2ed573; }
+.timer-label { text-align: center; font-size: 0.9rem; color: var(--sub); margin: -10px 0 16px; }
+
+.timer-controls { display: flex; gap: 10px; justify-content: center; margin-bottom: 16px; }
+.timer-controls button {
+  padding: 14px 28px; border: none; border-radius: 12px;
+  font-size: 1rem; cursor: pointer; transition: .2s; font-weight: 600;
+}
+.btn-start { background: var(--accent); color: #fff; }
+.btn-pause { background: #ffa502; color: #fff; }
+.btn-reset { background: var(--border); color: var(--text); }
+
+.timer-settings label { display: block; margin: 8px 0 4px; font-size: 0.85rem; color: var(--sub); }
+.timer-settings input {
+  width: 100%; padding: 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: 1rem;
+}
+.timer-settings .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.progress-bar {
+  height: 6px; background: var(--border); border-radius: 3px;
+  margin: 16px 0; overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%; background: var(--accent); border-radius: 3px;
+  transition: width 0.3s; width: 0%;
+}
+
+/* 训练记录 */
+.exercise-entry {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px;
+  gap: 8px; align-items: center; margin-bottom: 10px;
+}
+.exercise-entry input, .exercise-entry select {
+  padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 0.9rem;
+  width: 100%;
+}
+.del-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 1.2rem; }
+.add-btn {
+  width: 100%; padding: 12px; border: 2px dashed var(--border);
+  background: none; color: var(--sub); border-radius: 10px;
+  cursor: pointer; font-size: 0.9rem; transition: .2s;
+}
+.add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.workout-summary { margin-top: 16px; padding: 14px; background: var(--bg); border-radius: 10px; }
+.workout-summary .stat { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.9rem; }
+
+/* 动作库 */
+.exercise-lib { max-height: 500px; overflow-y: auto; }
+.lib-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px; margin-bottom: 8px; background: var(--bg);
+  border-radius: 10px; cursor: pointer; transition: .2s;
+}
+.lib-item:hover { background: #222; }
+.lib-item .name { font-weight: 600; }
+.lib-item .desc { font-size: 0.8rem; color: var(--sub); margin-top: 4px; }
+.lib-item .muscle {
+  font-size: 0.75rem; background: var(--accent); color: #fff;
+  padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+}
+
+/* 体测 */
+.formula { margin-bottom: 16px; }
+.formula label { display: block; margin-bottom: 4px; font-size: 0.85rem; color: var(--sub); }
+.formula input {
+  width: 100%; padding: 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: 1rem;
+}
+.formula .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.result-box {
+  text-align: center; padding: 20px; background: var(--bg);
+  border-radius: 10px; margin-top: 12px;
+}
+.result-box .val { font-size: 2.5rem; font-weight: 700; color: var(--accent); }
+.result-box .label { font-size: 0.85rem; color: var(--sub); }
+
+/* 打卡 */
+.streak-display { text-align: center; padding: 30px; }
+.streak-fire { font-size: 4rem; margin-bottom: 10px; }
+.streak-num { font-size: 3rem; font-weight: 700; color: var(--accent); }
+.streak-label { color: var(--sub); font-size: 0.9rem; }
+
+.calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 16px; }
+.calendar .day {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; font-size: 0.8rem; cursor: pointer; transition: .2s;
+  background: var(--bg);
+}
+.calendar .day.done { background: var(--accent); color: #fff; }
+.calendar .day.today { border: 2px solid var(--accent); }
+.calendar .day-label { font-size: 0.7rem; color: var(--sub); aspect-ratio: auto; background: none; }
+.checkin-btn {
+  width: 100%; padding: 16px; border: none; background: var(--accent);
+  color: #fff; border-radius: 14px; font-size: 1.1rem; font-weight: 600;
+  cursor: pointer; margin-top: 16px; transition: .2s;
+}
+.checkin-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 通知 */
+.toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: #2ed573; color: #000; padding: 12px 24px; border-radius: 10px;
+  font-weight: 600; z-index: 100; transition: .3s; opacity: 0; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>💪 原老大的健身记录</h1>
+
+<nav>
+  <button class="active" data-page="timer">⏱ 计时器</button>
+  <button data-page="log">📋 训练记录</button>
+  <button data-page="library">📚 动作库</button>
+  <button data-page="body">📐 体测</button>
+  <button data-page="streak">🔥 打卡</button>
+</nav>
+
+<!-- 计时器 -->
+<div id="timer" class="page show">
+  <div class="card">
+    <h2>HIIT / 间歇计时</h2>
+    <div class="timer-display" id="timeDisplay">30</div>
+    <div class="timer-label" id="timerLabel">准备开始</div>
+    <div class="timer-controls">
+      <button class="btn-start" id="btnStart" onclick="toggleTimer()">▶ 开始</button>
+      <button class="btn-reset" onclick="resetTimer()">↺ 重置</button>
+    </div>
+    <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+    <div style="text-align:center; font-size:0.85rem">
+      第 <span id="roundNum">0</span> / <span id="totalRounds">10</span> 组
+    </div>
+  </div>
+  <div class="card timer-settings">
+    <h2>参数设置</h2>
+    <div class="row">
+      <div><label>运动时间 (秒)</label><input id="workTime" type="number" value="30" min="1"></div>
+      <div><label>休息时间 (秒)</label><input id="restTime" type="number" value="15" min="0"></div>
+    </div>
+    <div class="row">
+      <div><label>总组数</label><input id="numRounds" type="number" value="10" min="1"></div>
+      <div><label>准备倒计时 (秒)</label><input id="warmup" type="number" value="3" min="0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 训练记录 -->
+<div id="log" class="page">
+  <div class="card">
+    <h2>今日训练记录</h2>
+    <div id="exerciseList"></div>
+    <button class="add-btn" onclick="addExercise()">+ 添加动作</button>
+    <div class="workout-summary" id="summary"></div>
+    <button class="checkin-btn" style="margin-top:12px" onclick="saveWorkout()">💾 保存训练</button>
+    <button style="width:100%;padding:10px;border:none;background:var(--border);color:var(--sub);border-radius:10px;margin-top:8px;cursor:pointer" onclick="loadWorkout()">📂 加载上次记录</button>
+  </div>
+</div>
+
+<!-- 动作库 -->
+<div id="library" class="page">
+  <div class="card">
+    <h2>常见训练动作</h2>
+    <div class="exercise-lib" id="libList"></div>
+  </div>
+</div>
+
+<!-- 体测 -->
+<div id="body" class="page">
+  <div class="card">
+    <h2>BMI 身体质量指数</h2>
+    <div class="formula">
+      <div class="row">
+        <div><label>身高 (cm)</label><input id="bmiHeight" type="number" placeholder="170" min="50" oninput="calcBMI()"></div>
+        <div><label>体重 (kg)</label><input id="bmiWeight" type="number" placeholder="70" min="20" oninput="calcBMI()"></div>
+      </div>
+    </div>
+    <div class="result-box">
+      <div class="val" id="bmiVal">--</div>
+      <div class="label">BMI</div>
+      <div style="font-size:0.85rem;margin-top:4px;color:var(--sub)" id="bmiMsg"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>1RM 最大重量估算</h2>
+    <div class="formula">
+      <div class="row">
+        <div><label>举起重量 (kg)</label><input id="rmWeight" type="number" placeholder="60" min="1" oninput="calcRM()"></div>
+        <div><label>完成次数</label><input id="rmReps" type="number" placeholder="8" min="1" oninput="calcRM()"></div>
+      </div>
+    </div>
+    <div class="result-box">
+      <div class="val" id="rmVal">--</div>
+      <div class="label">预估 1RM (kg)</div>
+    </div>
+  </div>
+</div>
+
+<!-- 打卡 -->
+<div id="streak" class="page">
+  <div class="card">
+    <div class="streak-display">
+      <div class="streak-fire">🔥</div>
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-label">连续打卡天数</div>
+    </div>
+    <button class="checkin-btn" id="checkinBtn" onclick="checkIn()">✅ 今日打卡</button>
+  </div>
+  <div class="card">
+    <h2>本月记录</h2>
+    <div class="calendar" id="calendarGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 计时器 ============
+let timerState = { work: 30, rest: 15, rounds: 10, warmup: 3 };
+let timer = { interval: null, time: 0, isWork: true, round: 0, running: false, phase: 'idle' };
+// phase: idle | warmup | work | rest | done
+
+function readSettings() {
+  timerState.work = +document.getElementById('workTime').value || 30;
+  timerState.rest = +document.getElementById('restTime').value || 15;
+  timerState.rounds = +document.getElementById('numRounds').value || 10;
+  timerState.warmup = +document.getElementById('warmup').value || 3;
+}
+
+function updateDisplay() {
+  const d = document.getElementById('timeDisplay');
+  const l = document.getElementById('timerLabel');
+  d.textContent = timer.time;
+  d.className = 'timer-display';
+  if (timer.phase === 'work') { d.classList.add('running'); l.textContent = '⚡ 运动时间'; }
+  else if (timer.phase === 'rest') { d.classList.add('rest'); l.textContent = '💤 休息时间'; }
+  else if (timer.phase === 'warmup') { d.classList.add('running'); l.textContent = '🔔 准备！'; }
+  else if (timer.phase === 'done') { d.textContent = '🏆'; l.textContent = '训练完成！'; }
+  else { l.textContent = '准备开始'; }
+
+  document.getElementById('roundNum').textContent = timer.round;
+  document.getElementById('totalRounds').textContent = timerState.rounds;
+
+  const fill = document.getElementById('progressFill');
+  const total = timer.phase === 'work' ? timerState.work : timer.phase === 'rest' ? timerState.rest : timerState.warmup;
+  fill.style.width = total > 0 ? ((timer.time / total) * 100) + '%' : '0%';
+}
+
+function toggleTimer() {
+  if (timer.running) { pauseTimer(); return; }
+  readSettings();
+  if (timer.phase === 'idle' || timer.phase === 'done') {
+    timer.phase = 'warmup'; timer.time = timerState.warmup; timer.round = 0; timer.isWork = true;
+  }
+  timer.running = true;
+  document.getElementById('btnStart').textContent = '⏸ 暂停';
+  document.getElementById('btnStart').className = 'btn-pause';
+  updateDisplay();
+  timer.interval = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  timer.running = false; clearInterval(timer.interval);
+  document.getElementById('btnStart').textContent = '▶ 继续';
+  document.getElementById('btnStart').className = 'btn-start';
+}
+
+function resetTimer() {
+  pauseTimer();
+  timer.phase = 'idle'; timer.time = timerState.work; timer.round = 0;
+  document.getElementById('btnStart').textContent = '▶ 开始';
+  document.getElementById('btnStart').className = 'btn-start';
+  updateDisplay();
+}
+
+function tick() {
+  if (timer.time > 0) { timer.time--; updateDisplay(); return; }
+  // 阶段切换
+  if (timer.phase === 'warmup') {
+    timer.phase = 'work'; timer.time = timerState.work; timer.round = 1;
+    playBeep(3);
+  } else if (timer.phase === 'work') {
+    timer.phase = 'rest'; timer.time = timerState.rest;
+    playBeep(2);
+  } else if (timer.phase === 'rest') {
+    timer.round++;
+    if (timer.round > timerState.rounds) { timer.phase = 'done'; timer.running = false; clearInterval(timer.interval); document.getElementById('btnStart').textContent = '🔄 重新开始'; document.getElementById('btnStart').className = 'btn-start'; updateDisplay(); return; }
+    timer.phase = 'work'; timer.time = timerState.work;
+    playBeep(3);
+  }
+  updateDisplay();
+}
+
+function playBeep(n) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < n; i++) {
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 800 + i * 200;
+      osc.type = 'square'; gain.gain.value = 0.1;
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.1);
+    }
+  } catch(e) {}
+}
+
+// ============ 训练记录 ============
+const exercises = [
+  '杠铃卧推','哑铃飞鸟','上斜卧推','双杠臂屈伸','俯卧撑',
+  '杠铃深蹲','腿举','罗马尼亚硬拉','保加利亚分腿蹲','腿弯举',
+  '引体向上','杠铃划船','高位下拉','坐姿划船','哑铃弯举',
+  '杠铃推举','侧平举','阿诺德推举','面拉','直立划船',
+  '卷腹','平板支撑','悬垂举腿','俄罗斯转体','死虫式'
+];
+
+let workoutRows = [];
+function addExercise(name = '', sets = '', reps = '', weight = '') {
+  const idx = workoutRows.length;
+  workoutRows.push({ name, sets, reps, weight });
+  const div = document.createElement('div');
+  div.className = 'exercise-entry';
+  div.id = 'row' + idx;
+  let opts = '<option value="">选择动作</option>';
+  exercises.forEach(e => opts += `<option ${name === e ? 'selected' : ''}>${e}</option>`);
+  div.innerHTML = `
+    <select onchange="updateRow(${idx},'name',this.value)">${opts}<option value="__custom__" ${name && !exercises.includes(name) ? 'selected' : ''}>自定义...</option></select>
+    <input placeholder="组数" value="${sets}" type="number" min="1" oninput="updateRow(${idx},'sets',this.value)">
+    <input placeholder="次数" value="${reps}" type="number" min="1" oninput="updateRow(${idx},'reps',this.value)">
+    <input placeholder="重量kg" value="${weight}" type="number" min="0" oninput="updateRow(${idx},'weight',this.value)">
+    <button class="del-btn" onclick="removeExercise(${idx})">✕</button>
+  `;
+  document.getElementById('exerciseList').appendChild(div);
+  updateSummary();
+}
+
+function updateRow(i, key, val) { workoutRows[i][key] = val; updateSummary(); }
+function removeExercise(i) {
+  workoutRows.splice(i, 1);
+  document.getElementById('row' + i).remove();
+  refreshRows(); updateSummary();
+}
+function refreshRows() {
+  const list = document.getElementById('exerciseList'); list.innerHTML = '';
+  workoutRows.forEach((r, i) => {
+    addExercise(r.name, r.sets, r.reps, r.weight);
+  });
+}
+
+function updateSummary() {
+  let totalSets = 0, totalVolume = 0;
+  workoutRows.forEach(r => {
+    const s = +r.sets || 0; const rp = +r.reps || 0; const w = +r.weight || 0;
+    totalSets += s; totalVolume += s * rp * w;
+  });
+  document.getElementById('summary').innerHTML = `
+    <div class="stat"><span>总动作数</span><strong>${workoutRows.length}</strong></div>
+    <div class="stat"><span>总组数</span><strong>${totalSets}</strong></div>
+    <div class="stat"><span>总训练量</span><strong>${totalVolume.toLocaleString()} kg</strong></div>
+  `;
+}
+
+function saveWorkout() {
+  const data = { rows: workoutRows, date: new Date().toISOString() };
+  const history = JSON.parse(localStorage.getItem('fitmate_workouts') || '[]');
+  history.push(data);
+  localStorage.setItem('fitmate_workouts', JSON.stringify(history.slice(-50)));
+  toast('训练记录已保存！');
+}
+
+function loadWorkout() {
+  const history = JSON.parse(localStorage.getItem('fitmate_workouts') || '[]');
+  if (history.length === 0) { toast('没有已保存的训练记录'); return; }
+  const last = history[history.length - 1];
+  workoutRows = [];
+  document.getElementById('exerciseList').innerHTML = '';
+  last.rows.forEach(r => addExercise(r.name, r.sets, r.reps, r.weight));
+  toast('加载成功');
+}
+
+// ============ 动作库 ============
+const libData = [
+  { name:'杠铃卧推', muscle:'胸大肌', desc:'仰卧推举杠铃，刺激胸大肌、三角肌前束、肱三头肌' },
+  { name:'杠铃深蹲', muscle:'股四头肌', desc:'颈后负重下蹲，训练大腿前侧、臀部、核心' },
+  { name:'引体向上', muscle:'背阔肌', desc:'悬垂拉起身体，训练背阔肌、肱二头肌、前臂' },
+  { name:'杠铃推举', muscle:'三角肌', desc:'站姿推举杠铃过头，训练肩部三角肌和肱三头肌' },
+  { name:'罗马尼亚硬拉', muscle:'腘绳肌', desc:'保持腿微屈，髋关节铰链提起杠铃，训练大腿后侧和下背' },
+  { name:'高位下拉', muscle:'背阔肌', desc:'坐姿下拉横杆至胸前，训练背部宽度' },
+  { name:'杠铃划船', muscle:'背阔肌', desc:'俯身提拉杠铃至腹部，训练背阔肌和中背部' },
+  { name:'哑铃弯举', muscle:'肱二头肌', desc:'站姿交替弯举哑铃，孤立训练肱二头肌' },
+  { name:'侧平举', muscle:'三角肌中束', desc:'站立侧举哑铃，训练肩部中束，增加肩宽' },
+  { name:'卷腹', muscle:'腹直肌', desc:'仰卧卷起上背部，刺激腹直肌' },
+  { name:'俯卧撑', muscle:'胸大肌', desc:'自重推起身体，训练胸肌、三角肌前束、肱三头肌' },
+  { name:'腿举', muscle:'股四头肌', desc:'器械腿举，安全有效地训练大腿前侧和臀部' },
+  { name:'平板支撑', muscle:'核心', desc:'俯卧支撑，训练腹横肌、腹直肌和核心稳定性' },
+  { name:'面拉', muscle:'三角肌后束', desc:'绳索面拉，改善圆肩驼背，训练后束和肩袖肌群' },
+  { name:'双杠臂屈伸', muscle:'肱三头肌', desc:'双杠支撑下降推起，训练肱三头肌和下胸' },
+];
+
+(function() {
+  const list = document.getElementById('libList');
+  libData.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'lib-item';
+    div.innerHTML = `<div><div class="name">${e.name}</div><div class="desc">${e.desc}</div></div><span class="muscle">${e.muscle}</span>`;
+    div.onclick = () => {
+      document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-page="log"]').classList.add('active');
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('show'));
+      document.getElementById('log').classList.add('show');
+      addExercise(e.name, 3, 12, 0);
+      toast('已添加「' + e.name + '」');
+    };
+    list.appendChild(div);
+  });
+})();
+
+// ============ 体测 ============
+function calcBMI() {
+  const h = +document.getElementById('bmiHeight').value / 100;
+  const w = +document.getElementById('bmiWeight').value;
+  if (!h || !w) return;
+  const bmi = w / (h * h);
+  document.getElementById('bmiVal').textContent = bmi.toFixed(1);
+  let msg = '';
+  if (bmi < 18.5) msg = '偏瘦 — 建议增肌';
+  else if (bmi < 24) msg = '正常 — 保持！';
+  else if (bmi < 28) msg = '偏胖 — 建议减脂';
+  else msg = '肥胖 — 建议减重';
+  document.getElementById('bmiMsg').textContent = msg;
+}
+
+function calcRM() {
+  const w = +document.getElementById('rmWeight').value;
+  const r = +document.getElementById('rmReps').value;
+  if (!w || !r) return;
+  const rm = w * (1 + r / 30);
+  document.getElementById('rmVal').textContent = rm.toFixed(1);
+}
+
+// ============ 打卡 ============
+function getToday() { return new Date().toISOString().slice(0, 10); }
+function getMonthDays() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const days = new Date(y, m + 1, 0).getDate();
+  const first = new Date(y, m, 1).getDay();
+  return { days, first, y, m, today: now.getDate() };
+}
+
+function renderCalendar() {
+  const data = JSON.parse(localStorage.getItem('fitmate_checkins') || '[]');
+  const { days, first, today } = getMonthDays();
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+  ['日','一','二','三','四','五','六'].forEach(d => {
+    grid.innerHTML += `<div class="day day-label">${d}</div>`;
+  });
+  for (let i = 0; i < first; i++) grid.innerHTML += '<div></div>';
+  for (let d = 1; d <= days; d++) {
+    const ds = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const cls = data.includes(ds) ? 'done' : '';
+    const tcls = d === today ? ' today' : '';
+    grid.innerHTML += `<div class="day ${cls}${tcls}">${d}</div>`;
+  }
+  updateStreak(data);
+}
+
+function updateStreak(data) {
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0, 10);
+    if (data.includes(ds)) streak++; else break;
+  }
+  document.getElementById('streakNum').textContent = streak;
+  const todayStr = getToday();
+  document.getElementById('checkinBtn').disabled = data.includes(todayStr);
+  if (data.includes(todayStr)) {
+    document.getElementById('checkinBtn').textContent = '✅ 今日已打卡';
+  } else {
+    document.getElementById('checkinBtn').textContent = '✅ 今日打卡';
+  }
+}
+
+function checkIn() {
+  const data = JSON.parse(localStorage.getItem('fitmate_checkins') || '[]');
+  const todayStr = getToday();
+  if (data.includes(todayStr)) return;
+  data.push(todayStr);
+  localStorage.setItem('fitmate_checkins', JSON.stringify(data));
+  renderCalendar();
+  toast('🔥 打卡成功！今天也坚持了！');
+}
+
+// ============ 通用 ============
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// 导航
+document.querySelectorAll('nav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('show'));
+    document.getElementById(btn.dataset.page).classList.add('show');
+    if (btn.dataset.page === 'streak') renderCalendar();
+  });
+});
+
+// 初始化
+addExercise(); addExercise(); addExercise();
+renderCalendar();
+
+// 加载保存的训练记录
+(function() {
+  const history = JSON.parse(localStorage.getItem('fitmate_workouts') || '[]');
+  if (history.length > 0) {
+    const last = history[history.length - 1];
+    if (last.date && last.date.slice(0, 10) === getToday()) {
+      workoutRows = [];
+      document.getElementById('exerciseList').innerHTML = '';
+      last.rows.forEach(r => addExercise(r.name, r.sets, r.reps, r.weight));
+    }
+  }
+})();
+// ============ PWA 安装 ============
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  setTimeout(() => {
+    if (installPrompt) {
+      document.getElementById('installBar').style.bottom = '0';
+    }
+  }, 3000);
+});
+
+function installPWA() {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  installPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') {
+      document.getElementById('installBar').style.bottom = '-100px';
+      toast('🎉 安装成功！');
+    }
+    installPrompt = null;
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('installBar').style.bottom = '-100px';
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      console.log('SW registered');
+    }).catch(() => {});
+  });
+}
+</script>
+
+<div id="installBar" style="position:fixed;bottom:-100px;left:50%;transform:translateX(-50%);background:var(--card);border-radius:14px;padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,0.5);transition:bottom .4s;max-width:460px;width:calc(100% - 40px)">
+  <span style="font-size:1.5rem">💪</span>
+  <span style="font-size:0.9rem;flex:1">添加到手机桌面，像 App 一样使用</span>
+  <button onclick="installPWA()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;white-space:nowrap">安装</button>
+  <button onclick="dismissInstall()" style="background:none;border:none;color:var(--sub);cursor:pointer;font-size:1.2rem">✕</button>
+</div>
+</body>
+</html>
