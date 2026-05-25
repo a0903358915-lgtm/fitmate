@@ -133,7 +133,7 @@ canvas { display:block; border:2px solid #333; border-radius:4px; }
 
   <div id="startScreen">
     <h1>⚔ 山东科技大学之战</h1>
-    <div class="sub">造梦西游风格 · 2D横版动作</div>
+    <div class="sub">造梦西游风格 · 2D横版动作 <span style="color:#0f0;font-size:10px;">v3.1</span></div>
     <button onclick="startGame()">开 始 游 戏</button>
     <div class="keys">
       A/D 移动 &nbsp;|&nbsp; 空格 跳跃 &nbsp;|&nbsp; J 普攻<br>
@@ -451,7 +451,7 @@ function drawEnemies() {
     if (e.type === 'boss') {
       // Dark shadow aura
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.beginPath(); ctx.ellipse(0, e.h*0.3, e.w*0.65, e.h*0.18, 0, 0, Math.PI*2); ctx.fill();
+      ctx.save(); ctx.scale(1, e.h*0.18/(e.w*0.65||1)); ctx.beginPath(); ctx.arc(0, e.h*0.3/(e.h*0.18/(e.w*0.65||1)||1), e.w*0.65, 0, Math.PI*2); ctx.fill(); ctx.restore();
 
       // Legs (behind body)
       ctx.fillStyle = '#2a0018';
@@ -527,7 +527,7 @@ function drawEnemies() {
 
       // Open mouth with fangs
       ctx.fillStyle = '#000';
-      ctx.beginPath(); ctx.ellipse(0, -e.h*0.16, e.w*0.1, e.h*0.06, 0, 0, Math.PI*2); ctx.fill();
+      ctx.save(); ctx.scale(1, e.h*0.06/(e.w*0.1||1)); ctx.beginPath(); ctx.arc(0, -e.h*0.16/(e.h*0.06/(e.w*0.1||1)||1), e.w*0.1, 0, Math.PI*2); ctx.fill(); ctx.restore();
       // Fangs
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.moveTo(-e.w*0.06, -e.h*0.18); ctx.lineTo(-e.w*0.08, -e.h*0.12); ctx.lineTo(-e.w*0.03, -e.h*0.17); ctx.fill();
