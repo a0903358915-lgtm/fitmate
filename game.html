@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>山东科技大学之战 - 造梦西游风格</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --gold: #ffd700;
+  --red: #e74c3c;
+  --blue: #3498db;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #000; display:flex; justify-content:center; align-items:center;
+  min-height:100vh; overflow:hidden; font-family:'Microsoft YaHei',sans-serif;
+}
+#gameWrap {
+  position:relative; width:960px; height:540px;
+}
+canvas { display:block; border:2px solid #333; border-radius:4px; }
+#uiOverlay {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  pointer-events:none;
+}
+.skill-bar {
+  position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+  display:flex; gap:8px; pointer-events:auto;
+}
+.skill-btn {
+  width:52px; height:52px; border:2px solid #666; border-radius:8px;
+  background:rgba(0,0,0,0.8); color:#fff; font-size:11px;
+  text-align:center; cursor:pointer; display:flex;
+  flex-direction:column; align-items:center; justify-content:center;
+  transition:.2s;
+}
+.skill-btn:hover { border-color:var(--gold); }
+.skill-btn .key { font-size:10px; color:var(--gold); }
+.skill-btn .cd {
+  width:100%; height:3px; background:#333; margin-top:2px; border-radius:2px;
+}
+.skill-btn .cd-fill { height:100%; background:var(--blue); border-radius:2px; transition:width .1s; }
+.skill-btn.on-cooldown { opacity:0.5; border-color:#444; }
+
+.panel {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(10,10,20,0.95); border:2px solid var(--gold);
+  border-radius:12px; padding:20px; display:none;
+  pointer-events:auto; min-width:320px; color:#fff;
+  z-index:10;
+}
+.panel.open { display:block; }
+.panel h3 {
+  text-align:center; color:var(--gold); margin-bottom:12px;
+  font-size:18px; border-bottom:1px solid #444; padding-bottom:8px;
+}
+.panel .grid { display:grid; grid-template-columns:72px 72px 72px 72px; gap:6px; justify-content:center; }
+.panel .slot {
+  width:72px; height:72px; border:2px solid #555; border-radius:8px;
+  background:rgba(255,255,255,0.05); display:flex;
+  flex-direction:column; align-items:center; justify-content:center;
+  cursor:pointer; transition:.2s; font-size:10px; color:#888;
+}
+.panel .slot:hover { border-color:var(--gold); }
+.panel .slot .icon { font-size:28px; }
+.panel .slot .name { font-size:10px; margin-top:2px; }
+.panel .slot.equipped { border-color:var(--gold); box-shadow:0 0 8px rgba(255,215,0,0.3); }
+.panel .row { display:flex; gap:10px; margin:8px 0; }
+.panel .stat { flex:1; text-align:center; padding:8px; background:rgba(255,255,255,0.05); border-radius:6px; }
+.panel .stat .val { font-size:22px; font-weight:700; color:var(--gold); }
+.panel .stat .lbl { font-size:10px; color:#999; }
+.panel button {
+  width:100%; padding:8px; background:var(--red); color:#fff;
+  border:none; border-radius:6px; cursor:pointer; font-size:14px;
+}
+.panel button:hover { opacity:0.8; }
+
+#startScreen {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; pointer-events:auto;
+  background:rgba(0,0,0,0.85); z-index:20;
+}
+#startScreen h1 { font-size:36px; color:var(--gold); margin-bottom:8px; text-shadow:0 0 20px rgba(255,215,0,0.5); }
+#startScreen .sub { color:#aaa; margin-bottom:30px; font-size:14px; }
+#startScreen button {
+  padding:14px 60px; font-size:20px; background:var(--red); color:#fff;
+  border:none; border-radius:10px; cursor:pointer; font-weight:700;
+  transition:.3s; letter-spacing:2px;
+}
+#startScreen button:hover { transform:scale(1.05); box-shadow:0 0 30px rgba(231,76,60,0.5); }
+#startScreen .keys { margin-top:20px; color:#888; font-size:11px; line-height:1.8; text-align:center; }
+
+#deathScreen {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:none; flex-direction:column; align-items:center;
+  justify-content:center; pointer-events:auto;
+  background:rgba(0,0,0,0.85); z-index:20;
+}
+#deathScreen.open { display:flex; }
+#deathScreen h2 { font-size:32px; color:var(--red); margin-bottom:16px; }
+#deathScreen button {
+  padding:12px 40px; font-size:18px; background:var(--blue); color:#fff;
+  border:none; border-radius:8px; cursor:pointer;
+}
+
+#winScreen {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  display:none; flex-direction:column; align-items:center;
+  justify-content:center; pointer-events:auto;
+  background:rgba(0,0,0,0.85); z-index:20;
+}
+#winScreen.open { display:flex; }
+#winScreen h2 { font-size:32px; color:var(--gold); margin-bottom:16px; }
+#winScreen button {
+  padding:12px 40px; font-size:18px; background:var(--blue); color:#fff;
+  border:none; border-radius:8px; cursor:pointer;
+}
+
+.tip {
+  position:absolute; bottom:60px; left:50%; transform:translateX(-50%);
+  color:var(--gold); font-size:12px; pointer-events:none;
+  opacity:0; transition:opacity .3s;
+}
+.tip.visible { opacity:1; }
+</style>
+</head>
+<body>
+
+<div id="gameWrap">
+  <canvas id="gc" width="960" height="540"></canvas>
+
+  <div id="startScreen">
+    <h1>⚔ 山东科技大学之战</h1>
+    <div class="sub">造梦西游风格 · 2D横版动作</div>
+    <button onclick="startGame()">开 始 游 戏</button>
+    <div class="keys">
+      A/D 移动 &nbsp;|&nbsp; 空格 跳跃 &nbsp;|&nbsp; J 普攻<br>
+      U 火焰斩 &nbsp; I 旋风斩 &nbsp; O 天雷降<br>
+      B 背包 &nbsp; E 装备
+    </div>
+  </div>
+
+  <div id="deathScreen"><h2>💀 你阵亡了</h2><button onclick="restartGame()">重新挑战</button></div>
+  <div id="winScreen"><h2>🏆 恭喜通关！</h2><button onclick="restartGame()">再玩一次</button></div>
+
+  <!-- 背包 -->
+  <div class="panel" id="backpackPanel">
+    <h3>🎒 背包</h3>
+    <div class="grid" id="backpackGrid"></div>
+    <div style="text-align:center;margin-top:10px;color:#888;font-size:11px;">点击物品装备 | 再次点击卸下</div>
+    <button style="margin-top:10px;background:#555" onclick="togglePanel('backpackPanel')">关闭 (B)</button>
+  </div>
+
+  <!-- 装备 -->
+  <div class="panel" id="equipPanel">
+    <h3>⚔ 装备界面</h3>
+    <div class="row">
+      <div class="stat"><div class="val" id="statAtk">10</div><div class="lbl">攻击力</div></div>
+      <div class="stat"><div class="val" id="statDef">5</div><div class="lbl">防御力</div></div>
+      <div class="stat"><div class="val" id="statSpd">3</div><div class="lbl">速度</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;margin:12px 0;font-size:12px">
+      <div>🗡 武器: <span id="eqWeapon" style="color:var(--gold)">新手木剑</span></div>
+      <div>🛡 防具: <span id="eqArmor" style="color:var(--gold)">布衣</span></div>
+      <div>💍 饰品: <span id="eqAccessory" style="color:var(--gold)">无</span></div>
+      <div>👟 鞋子: <span id="eqBoots" style="color:var(--gold)">草鞋</span></div>
+    </div>
+    <button style="margin-top:10px;background:#555" onclick="togglePanel('equipPanel')">关闭 (E)</button>
+  </div>
+
+  <div class="skill-bar" id="skillBar">
+    <div class="skill-btn" id="skJ"><span class="key">J</span>普攻</div>
+    <div class="skill-btn" id="skU"><span class="key">U</span>火焰斩<div class="cd"><div class="cd-fill" id="cdU"></div></div></div>
+    <div class="skill-btn" id="skI"><span class="key">I</span>旋风斩<div class="cd"><div class="cd-fill" id="cdI"></div></div></div>
+    <div class="skill-btn" id="skO"><span class="key">O</span>天雷降<div class="cd"><div class="cd-fill" id="cdO"></div></div></div>
+  </div>
+  <div class="tip" id="tipMsg"></div>
+</div>
+
+<script>
+// ==================== GAME ENGINE ====================
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+const W = 960, H = 540;
+
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  e.preventDefault();
+  // UI toggles
+  if (e.key.toLowerCase() === 'b') togglePanel('backpackPanel');
+  if (e.key.toLowerCase() === 'e') togglePanel('equipPanel');
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; e.preventDefault(); });
+
+// ==================== DATA ====================
+const ITEMS = [
+  { id:'wood_sword', name:'新手木剑', type:'weapon', icon:'🗡', atk:3, desc:'训练用木剑' },
+  { id:'iron_sword', name:'精铁长剑', type:'weapon', icon:'⚔', atk:8, desc:'锋利铁剑' },
+  { id:'flame_blade', name:'炎之刃', type:'weapon', icon:'🔥', atk:15, desc:'附带火焰之力' },
+  { id:'cloth', name:'布衣', type:'armor', icon:'👘', def:2, desc:'普通布衣' },
+  { id:'leather', name:'皮甲', type:'armor', icon:'🛡', def:5, desc:'坚韧皮甲' },
+  { id:'gold_armor', name:'黄金甲', type:'armor', icon:'✨', def:10, desc:'金光闪耀' },
+  { id:'ring', name:'力量戒指', type:'accessory', icon:'💍', atk:4, desc:'增强力量' },
+  { id:'amulet', name:'疾风项链', type:'accessory', icon:'📿', spd:2, desc:'提升速度' },
+  { id:'straw_shoes', name:'草鞋', type:'boots', icon:'👟', spd:1, desc:'普通草鞋' },
+  { id:'wind_boots', name:'疾风靴', type:'boots', icon:'👢', spd:3, desc:'如风般疾走' },
+];
+
+let gameState = 'start'; // start | playing | dead | win
+let cameraX = 0;
+let worldWidth = 3600;
+let particles = [];
+let damageNumbers = [];
+let screenShake = 0;
+
+// Player
+let player = {
+  x: 150, y: 300, w: 40, h: 60,
+  vx: 0, vy: 0,
+  facing: 1,
+  grounded: false,
+  hp: 100, maxHp: 100,
+  mp: 100, maxMp: 100,
+  baseAtk: 10, baseDef: 5, baseSpd: 3,
+  get atk() { return this.baseAtk + (getEquipped('weapon')?.atk||0) + (getEquipped('accessory')?.atk||0); },
+  get def() { return this.baseDef + (getEquipped('armor')?.def||0); },
+  get spd() { return this.baseSpd + (getEquipped('boots')?.spd||0) + (getEquipped('accessory')?.spd||0); },
+  attacking: false, attackTimer: 0,
+  skillCooldowns: { u:0, i:0, o:0 },
+  invincible: 0,
+};
+
+// Backpack and equipment
+let backpack = ['wood_sword','cloth','straw_shoes'];
+let equipment = { weapon:'wood_sword', armor:'cloth', accessory:null, boots:'straw_shoes' };
+
+function getEquipped(slot) {
+  const id = equipment[slot];
+  if (!id) return null;
+  return ITEMS.find(i => i.id === id);
+}
+
+// Skills
+const SKILLS = {
+  u: { name:'火焰斩', cost:15, cd:60, dmgMul:2.5, desc:'向前方释放火焰剑气' },
+  i: { name:'旋风斩', cost:25, cd:90, dmgMul:1.8, desc:'旋转攻击周围所有敌人' },
+  o: { name:'天雷降', cost:40, cd:180, dmgMul:4.0, desc:'召唤天雷轰击全屏敌人' },
+};
+
+// Enemies
+let enemies = [];
+const ENEMY_TYPES = {
+  slime: { name:'墨水流质', w:30,h:30, hp:30, atk:5, spd:0.5, color:'#9b59b6', score:10 },
+  skeleton: { name:'考试骷髅', w:40,h:56, hp:60, atk:10, spd:1.2, color:'#ecf0f1', score:25 },
+  demon: { name:'高数恶魔', w:44,h:60, hp:100, atk:18, spd:0.8, color:'#c0392b', score:50 },
+  boss: { name:'期末Boss·论文巨兽', w:80,h:100, hp:500, atk:30, spd:0.6, color:'#8e44ad', score:500 },
+};
+
+// Level - platforms [x, y, w, h]
+let platforms = [
+  // ground segments
+  [0,460,2800,80],
+  [2900,460,700,80],
+  // floating platforms
+  [300,380,180,16],
+  [550,320,180,16],
+  [800,380,200,16],
+  [1100,300,160,16],
+  [1400,360,180,16],
+  [1700,280,200,16],
+  [2000,340,180,16],
+  [2300,380,200,16],
+  [2600,300,200,16],
+];
+
+// Background buildings
+let bgBuildings = [];
+for (let i = 0; i < 20; i++) {
+  bgBuildings.push({
+    x: i * 180 + Math.random() * 40,
+    w: 40 + Math.random() * 80,
+    h: 80 + Math.random() * 160,
+    color: ['#6c7a89','#7f8c8d','#95a5a6','#bdc3c7'][Math.floor(Math.random()*4)],
+    windows: Math.floor(Math.random() * 6) + 2,
+    layer: Math.random() < 0.3 ? 1 : 0,
+  });
+}
+
+// ==================== RENDERING ====================
+function drawSky() {
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#1a1a40');
+  grad.addColorStop(0.5,'#2c3e50');
+  grad.addColorStop(1,'#4a6741');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+  // Mountains
+  ctx.fillStyle = '#1a3a1a';
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for (let x = 0; x <= W; x += 50) {
+    ctx.lineTo(x, H - 60 - Math.sin(x*0.008)*50 - Math.sin(x*0.02)*30);
+  }
+  ctx.lineTo(W,H); ctx.fill();
+}
+
+function drawBgBuildings() {
+  bgBuildings.forEach(b => {
+    const parallax = b.layer === 0 ? 0.3 : 0.6;
+    const bx = b.x - cameraX * parallax;
+    if (bx < -100 || bx > W + 100) return;
+    ctx.fillStyle = b.color;
+    ctx.fillRect(bx, H - 80 - b.h, b.w, b.h);
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(bx, H - 80 - b.h, b.w, 6);
+    // Windows
+    for (let wy = 0; wy < b.windows; wy++) {
+      const wx = bx + 8 + (wy % 3) * (b.w / 4);
+      const wh = H - 80 - b.h + 15 + Math.floor(wy / 3) * 35;
+      if (wh < H - 80) {
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(wx, wh, b.w / 5, b.w / 5);
+      }
+    }
+  });
+  // SDUST gate
+  const gx = 2600 - cameraX * 0.4;
+  if (gx > -300 && gx < W + 100) {
+    ctx.fillStyle = '#c0392b';
+    ctx.fillRect(gx, H-260, 180, 180);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(gx+20, H-240, 140, 160);
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = 'bold 16px "Microsoft YaHei"';
+    ctx.fillText('山东科技大学', gx+8, H-140);
+    ctx.font = 'bold 13px "Microsoft YaHei"';
+    ctx.fillText('惟真求新', gx+38, H-118);
+  }
+}
+
+function drawGround() {
+  ctx.fillStyle = '#3d2b1f';
+  ctx.fillRect(0,H-20,W,20);
+  ctx.fillStyle = '#4a6c2f';
+  for (let x = (-cameraX % 40); x < W; x += 40) {
+    ctx.fillRect(x, H-24, 20, 6);
+  }
+}
+
+function drawPlatforms() {
+  platforms.forEach(p => {
+    const px = p[0] - cameraX;
+    if (px < -200 || px > W + 100) return;
+    const py = p[1];
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(px-2, py-2, p[2]+4, p[3]+4);
+    // Platform body
+    const grad = ctx.createLinearGradient(0,py,0,py+p[3]);
+    grad.addColorStop(0,'#8B7355');
+    grad.addColorStop(0.5,'#6B4226');
+    grad.addColorStop(1,'#4a2c0a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(px, py, p[2], p[3]);
+    // Top edge
+    ctx.fillStyle = '#a08060';
+    ctx.fillRect(px, py, p[2], 4);
+  });
+}
+
+function drawPlayer() {
+  if (gameState !== 'playing') return;
+  const p = player;
+  if (p.invincible > 0 && Math.floor(p.invincible/5) % 2 === 0) return;
+  const px = p.x - cameraX;
+  const py = p.y;
+  ctx.save();
+  ctx.translate(px + p.w/2, py + p.h/2);
+  if (p.facing < 0) ctx.scale(-1,1);
+
+  // Body
+  ctx.fillStyle = '#e67e22';
+  ctx.fillRect(-16,-20,32,30);
+  // Head
+  ctx.fillStyle = '#fdbcb4';
+  ctx.beginPath(); ctx.arc(0,-28,14,0,Math.PI*2); ctx.fill();
+  // Hair
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(-14,-38,28,14);
+  ctx.beginPath(); ctx.arc(0,-24,14,Math.PI,0,true); ctx.fill();
+  // Eyes
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(4,-32,6,6);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(7,-30,3,3);
+  // Bandana
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(-16,-36,32,4);
+  ctx.fillRect(12,-38,8,8);
+  // Legs
+  ctx.fillStyle = '#2c3e50';
+  ctx.fillRect(-10,10,9,16);
+  ctx.fillRect(2,10,9,16);
+  // Shoes
+  ctx.fillStyle = '#795548';
+  ctx.fillRect(-12,26,12,6);
+  ctx.fillRect(0,26,12,6);
+
+  // Attack animation
+  if (p.attacking) {
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    const sw = 44;
+    ctx.fillRect(16,-6,sw,8);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(16+sw,-4,6,4);
+  }
+
+  ctx.restore();
+
+  // HP bar
+  const hbw = 50;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + p.w/2 - hbw/2, py - 16, hbw, 6);
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(px + p.w/2 - hbw/2, py - 16, hbw * (p.hp/p.maxHp), 6);
+  // MP bar
+  ctx.fillStyle = '#000';
+  ctx.fillRect(px + p.w/2 - hbw/2, py - 9, hbw, 4);
+  ctx.fillStyle = '#3498db';
+  ctx.fillRect(px + p.w/2 - hbw/2, py - 9, hbw * (p.mp/p.maxMp), 4);
+  // Name
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px "Microsoft YaHei"';
+  ctx.textAlign = 'center';
+  ctx.fillText('原老大 Lv.10', px + p.w/2, py - 20);
+}
+
+function drawEnemies() {
+  enemies.forEach(e => {
+    const ex = e.x - cameraX;
+    if (ex < -80 || ex > W + 80) return;
+    const ey = e.y;
+    ctx.save();
+    ctx.translate(ex + e.w/2, ey + e.h/2);
+    const dir = e.x < player.x ? 1 : -1;
+    if (dir < 0) ctx.scale(-1,1);
+
+    // Body
+    ctx.fillStyle = e.color;
+    ctx.fillRect(-e.w/2,-e.h/3,e.w,e.h*0.65);
+    // Head
+    if (e.type !== 'slime') {
+      ctx.fillStyle = '#ddd';
+      ctx.beginPath(); ctx.arc(0,-e.h/3,14,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(0,-e.h/4,16,0,Math.PI*2); ctx.fill();
+    }
+    // Eyes
+    ctx.fillStyle = '#ff0';
+    ctx.fillRect(4,-e.h/3-5,5,5);
+    // Boss extras
+    if (e.type === 'boss') {
+      ctx.fillStyle = '#8e44ad';
+      ctx.beginPath(); ctx.arc(0,-50,20,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#f1c40f';
+      ctx.font = '10px "Microsoft YaHei"';
+      ctx.textAlign = 'center';
+      ctx.fillText('BOSS',0,-50);
+    }
+
+    ctx.restore();
+
+    // HP bar
+    const hbw = e.w + 6;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(ex + e.w/2 - hbw/2, ey - 18, hbw, 5);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(ex + e.w/2 - hbw/2, ey - 18, hbw * (e.hp/e.maxHp), 5);
+
+    // Name
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText(e.name, ex + e.w/2, ey - 22);
+  });
+}
+
+function drawParticles() {
+  particles.forEach(pt => {
+    ctx.globalAlpha = pt.life / pt.maxLife;
+    ctx.fillStyle = pt.color;
+    ctx.fillRect(pt.x - cameraX, pt.y, pt.size, pt.size);
+  });
+  ctx.globalAlpha = 1;
+  particles = particles.filter(p => { p.life--; p.x += p.vx; p.y += p.vy; p.vy += 0.3; return p.life > 0; });
+}
+
+function drawDamageNumbers() {
+  damageNumbers.forEach(d => {
+    const alpha = d.life / d.maxLife;
+    ctx.fillStyle = d.crit ? '#ff0' : '#fff';
+    ctx.globalAlpha = alpha;
+    ctx.font = (d.crit ? 'bold 18px' : '14px') + ' "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.text, d.x - cameraX, d.y - (d.maxLife - d.life) * 2);
+  });
+  ctx.globalAlpha = 1;
+  damageNumbers = damageNumbers.filter(d => { d.life--; return d.life > 0; });
+}
+
+// ==================== PHYSICS ====================
+function applyPhysics(obj) {
+  obj.vy += 0.65;
+  obj.y += obj.vy;
+  obj.x += obj.vx;
+
+  // Platform collision
+  obj.grounded = false;
+  const checkPlatforms = platforms;
+  checkPlatforms.forEach(p => {
+    if (obj.x + obj.w > p[0] && obj.x < p[0]+p[2]) {
+      // Landing on top
+      if (obj.vy >= 0 && obj.y + obj.h >= p[1] && obj.y + obj.h - obj.vy <= p[1] + 6) {
+        obj.y = p[1] - obj.h;
+        obj.vy = 0;
+        obj.grounded = true;
+      }
+      // Hitting bottom
+      if (obj.vy < 0 && obj.y <= p[1] + p[3] && obj.y - obj.vy >= p[1] + p[3] - 6) {
+        obj.y = p[1] + p[3];
+        obj.vy = 1;
+      }
+    }
+  });
+
+  // Fall off world
+  if (obj.y > H + 200) {
+    if (obj === player) { playerDie(); }
+    else { obj.hp = 0; }
+  }
+
+  // Ground (bottom of world)
+  if (obj.y + obj.h > 460 && obj.y < 470) {
+    obj.y = 460 - obj.h;
+    obj.vy = 0;
+    obj.grounded = true;
+  }
+}
+
+function collides(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ==================== GAMEPLAY ====================
+function playerAttack() {
+  if (player.attacking || player.attackTimer > 0) return;
+  player.attacking = true;
+  player.attackTimer = 15;
+  const atkBox = {
+    x: player.x + (player.facing > 0 ? player.w : -50),
+    y: player.y, w: 50, h: player.h
+  };
+  enemies.forEach(e => {
+    if (collides(atkBox, {x:e.x,y:e.y,w:e.w,h:e.h})) {
+      const dmg = player.atk + Math.floor(Math.random()*5);
+      const crit = Math.random() < 0.15;
+      const finalDmg = crit ? dmg * 2 : dmg;
+      e.hp -= finalDmg;
+      spawnHitParticles(e.x + e.w/2, e.y + e.h/2);
+      damageNumbers.push({ x:e.x+e.w/2, y:e.y, text:finalDmg, life:30, maxLife:30, crit });
+      if (e.hp <= 0) killEnemy(e);
+    }
+  });
+  spawnSlashParticles(player.x + (player.facing > 0 ? player.w : -30), player.y + player.h/2);
+}
+
+function useSkill(key) {
+  const skill = SKILLS[key];
+  if (!skill || player.skillCooldowns[key] > 0 || player.mp < skill.cost) return;
+  player.mp -= skill.cost;
+  player.skillCooldowns[key] = skill.cd;
+
+  if (key === 'u') { // Fire slash
+    spawnSkillProjectile(player.x + player.w/2, player.y + player.h/2, player.facing * 12, 0, '#ff6b35', 4);
+    spawnSkillProjectile(player.x + player.w/2, player.y + player.h/2, player.facing * 12, -1.5, '#ff8c42', 4);
+    spawnSkillProjectile(player.x + player.w/2, player.y + player.h/2, player.facing * 12, 1.5, '#ffaa55', 4);
+    screenShake = 4;
+    for (let i = 0; i < 20; i++) {
+      particles.push({ x:player.x+player.w/2, y:player.y+player.h/2, vx:(Math.random()-0.5)*8, vy:(Math.random()-0.5)*8-3, size:3+Math.random()*4, color:'#ff6b35', life:15+Math.random()*10, maxLife:25 });
+    }
+  }
+
+  if (key === 'i') { // Whirlwind (AOE)
+    enemies.forEach(e => {
+      const dist = Math.hypot(e.x + e.w/2 - player.x - player.w/2, e.y + e.h/2 - player.y - player.h/2);
+      if (dist < 180) {
+        const dmg = Math.floor(player.atk * skill.dmgMul);
+        e.hp -= dmg;
+        damageNumbers.push({ x:e.x+e.w/2, y:e.y, text:dmg, life:30, maxLife:30, crit:false });
+        e.vx = (e.x > player.x ? 1 : -1) * 6;
+        e.vy = -4;
+        if (e.hp <= 0) killEnemy(e);
+      }
+    });
+    for (let i = 0; i < 36; i++) {
+      const angle = (i/36)*Math.PI*2;
+      particles.push({
+        x:player.x+player.w/2, y:player.y+player.h/2,
+        vx:Math.cos(angle)*5, vy:Math.sin(angle)*5-2,
+        size:2+Math.random()*4, color:'#00d2ff',
+        life:12+Math.random()*8, maxLife:20
+      });
+    }
+    screenShake = 6;
+  }
+
+  if (key === 'o') { // Thunder (full screen)
+    screenShake = 12;
+    enemies.forEach((e, i) => {
+      setTimeout(() => {
+        const dmg = Math.floor(player.atk * skill.dmgMul);
+        e.hp -= dmg;
+        damageNumbers.push({ x:e.x+e.w/2, y:e.y, text:dmg, life:35, maxLife:35, crit:true });
+        // Lightning bolt particles
+        for (let j = 0; j < 15; j++) {
+          particles.push({ x:e.x+Math.random()*e.w, y:e.y, vx:(Math.random()-0.5)*2, vy:2+Math.random()*4, size:2+Math.random()*3, color:'#ffd700', life:8+Math.random()*6, maxLife:14 });
+        }
+        if (e.hp <= 0) killEnemy(e);
+      }, i * 80);
+    });
+    // Full screen flash
+    ctx.fillStyle = 'rgba(255,255,200,0.3)';
+    ctx.fillRect(0,0,W,H);
+    setTimeout(() => {
+      for (let i = 0; i < 30; i++) {
+        particles.push({ x:Math.random()*worldWidth, y:0, vx:(Math.random()-0.5)*2, vy:8+Math.random()*6, size:3+Math.random()*5, color:'#ffd700', life:12+Math.random()*10, maxLife:22 });
+      }
+    }, 300);
+  }
+
+  showTip(`${skill.name}！`);
+}
+
+function killEnemy(e) {
+  spawnDeathParticles(e.x+e.w/2, e.y+e.h/2, e.color);
+  const idx = enemies.indexOf(e);
+  if (idx >= 0) enemies.splice(idx, 1);
+  // Drop item chance
+  if (Math.random() < 0.3) {
+    const drops = ['iron_sword','leather','ring','amulet','wind_boots','flame_blade','gold_armor'];
+    const drop = drops[Math.floor(Math.random()*drops.length)];
+    if (!backpack.includes(drop) && backpack.length < 16) {
+      backpack.push(drop);
+      showTip(`获得 [${ITEMS.find(i=>i.id===drop).name}]！`);
+    }
+  }
+  // Check boss death
+  if (e.type === 'boss') {
+    winGame();
+  }
+  // Score
+  if (e.score) {
+    player.maxHp += 4;
+    player.hp = Math.min(player.maxHp, player.hp + 10);
+  }
+}
+
+function playerDie() {
+  gameState = 'dead';
+  document.getElementById('deathScreen').classList.add('open');
+}
+
+function winGame() {
+  gameState = 'win';
+  document.getElementById('winScreen').classList.add('open');
+}
+
+function restartGame() {
+  player.x = 150; player.y = 300; player.vx = 0; player.vy = 0;
+  player.hp = player.maxHp; player.mp = player.maxMp;
+  player.skillCooldowns = { u:0, i:0, o:0 };
+  player.attacking = false; player.attackTimer = 0;
+  player.invincible = 0;
+  enemies = [];
+  particles = [];
+  damageNumbers = [];
+  spawnEnemies();
+  cameraX = 0;
+  gameState = 'playing';
+  document.getElementById('deathScreen').classList.remove('open');
+  document.getElementById('winScreen').classList.remove('open');
+}
+
+function spawnEnemies() {
+  enemies = [
+    { type:'slime', x:450, y:430, w:30, h:30, hp:30, maxHp:30, vx:0, vy:0, grounded:false, color:'#9b59b6', name:'墨水流质', atk:5, score:10 },
+    { type:'slime', x:600, y:430, w:30, h:30, hp:30, maxHp:30, vx:0, vy:0, grounded:false, color:'#9b59b6', name:'墨水流质', atk:5, score:10 },
+    { type:'skeleton', x:850, y:430, w:40, h:56, hp:60, maxHp:60, vx:0, vy:0, grounded:false, color:'#ecf0f1', name:'考试骷髅', atk:10, score:25 },
+    { type:'skeleton', x:1000, y:430, w:40, h:56, hp:60, maxHp:60, vx:0, vy:0, grounded:false, color:'#ecf0f1', name:'考试骷髅', atk:10, score:25 },
+    { type:'demon', x:1400, y:430, w:44, h:60, hp:100, maxHp:100, vx:0, vy:0, grounded:false, color:'#c0392b', name:'高数恶魔', atk:18, score:50 },
+    { type:'demon', x:1700, y:430, w:44, h:60, hp:100, maxHp:100, vx:0, vy:0, grounded:false, color:'#c0392b', name:'高数恶魔', atk:18, score:50 },
+    { type:'skeleton', x:2000, y:430, w:40, h:56, hp:60, maxHp:60, vx:0, vy:0, grounded:false, color:'#ecf0f1', name:'考试骷髅', atk:10, score:25 },
+    { type:'demon', x:2300, y:430, w:44, h:60, hp:100, maxHp:100, vx:0, vy:0, grounded:false, color:'#c0392b', name:'高数恶魔', atk:18, score:50 },
+    { type:'boss', x:2900, y:360, w:80, h:100, hp:500, maxHp:500, vx:0, vy:0, grounded:false, color:'#8e44ad', name:'期末Boss·论文巨兽', atk:30, score:500 },
+  ];
+}
+
+// Particles helpers
+function spawnHitParticles(x, y) {
+  for (let i = 0; i < 8; i++) {
+    particles.push({ x,y, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6-4, size:2+Math.random()*3, color:'#fff', life:6+Math.random()*5, maxLife:11 });
+  }
+}
+
+function spawnSlashParticles(x, y) {
+  for (let i = 0; i < 5; i++) {
+    particles.push({ x,y, vx:player.facing*3+Math.random()*2, vy:(Math.random()-0.5)*4, size:2+Math.random()*3, color:'#f1c40f', life:8+Math.random()*5, maxLife:13 });
+  }
+}
+
+function spawnDeathParticles(x, y, color) {
+  for (let i = 0; i < 20; i++) {
+    particles.push({ x,y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10-5, size:2+Math.random()*5, color, life:15+Math.random()*15, maxLife:30 });
+  }
+}
+
+function spawnSkillProjectile(x, y, vx, vy, color, lifeSec) {
+  const proj = { x, y, vx, vy, color, life: lifeSec*60, damage: Math.floor(player.atk * SKILLS.u.dmgMul), hit:[] };
+  let timer = 0;
+  const interval = setInterval(() => {
+    if (gameState !== 'playing') { clearInterval(interval); return; }
+    proj.x += proj.vx; proj.y += proj.vy;
+    proj.vy += 0.05;
+    // Trail
+    particles.push({ x:proj.x, y:proj.y, vx:(Math.random()-0.5)*2, vy:(Math.random()-0.5)*2, size:2+Math.random()*3, color:proj.color, life:8, maxLife:8 });
+    // Hit enemies
+    enemies.forEach(e => {
+      if (!proj.hit.includes(e) && collides({x:proj.x-8,y:proj.y-8,w:16,h:16}, {x:e.x,y:e.y,w:e.w,h:e.h})) {
+        proj.hit.push(e);
+        e.hp -= proj.damage;
+        damageNumbers.push({ x:e.x+e.w/2, y:e.y, text:proj.damage, life:25, maxLife:25, crit:false });
+        spawnHitParticles(e.x+e.w/2, e.y+e.h/2);
+        if (e.hp <= 0) killEnemy(e);
+      }
+    });
+    // Draw
+    const px = proj.x - cameraX;
+    if (px > -20 && px < W+20) {
+      ctx.fillStyle = proj.color;
+      ctx.shadowColor = proj.color;
+      ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(px, proj.y, 8, 0, Math.PI*2); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+    timer++;
+    if (timer >= proj.life) clearInterval(interval);
+  }, 16);
+}
+
+// ==================== UI ====================
+function togglePanel(id) {
+  const panel = document.getElementById(id);
+  const other = id === 'backpackPanel' ? 'equipPanel' : 'backpackPanel';
+  document.getElementById(other).classList.remove('open');
+  panel.classList.toggle('open');
+  if (id === 'backpackPanel') renderBackpack();
+  if (id === 'equipPanel') renderEquip();
+}
+
+function renderBackpack() {
+  const grid = document.getElementById('backpackGrid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 16; i++) {
+    const itemId = backpack[i];
+    const item = itemId ? ITEMS.find(it => it.id === itemId) : null;
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    if (item && equipment[item.type] === itemId) slot.classList.add('equipped');
+    slot.innerHTML = item ? `<div class="icon">${item.icon}</div><div class="name">${item.name}</div>` : '<div style="font-size:20px;color:#444">-</div>';
+    if (item) {
+      slot.onclick = () => {
+        if (equipment[item.type] === itemId) {
+          equipment[item.type] = null;
+        } else {
+          equipment[item.type] = itemId;
+        }
+        renderBackpack();
+        renderEquip();
+      };
+    }
+    grid.appendChild(slot);
+  }
+}
+
+function renderEquip() {
+  ['weapon','armor','accessory','boots'].forEach(slot => {
+    const item = getEquipped(slot);
+    const idMap = { weapon:'eqWeapon', armor:'eqArmor', accessory:'eqAccessory', boots:'eqBoots' };
+    document.getElementById(idMap[slot]).textContent = item ? item.name : '无';
+  });
+  document.getElementById('statAtk').textContent = player.atk;
+  document.getElementById('statDef').textContent = player.def;
+  document.getElementById('statSpd').textContent = player.spd;
+}
+
+function showTip(msg) {
+  const tip = document.getElementById('tipMsg');
+  tip.textContent = msg;
+  tip.classList.add('visible');
+  setTimeout(() => tip.classList.remove('visible'), 1500);
+}
+
+// ==================== GAME LOOP ====================
+function startGame() {
+  document.getElementById('startScreen').style.display = 'none';
+  gameState = 'playing';
+  spawnEnemies();
+}
+
+function update() {
+  if (gameState !== 'playing') return;
+
+  // Player input
+  const spd = player.spd * 1.2;
+  if (keys['a']) { player.vx = -spd; player.facing = -1; }
+  else if (keys['d']) { player.vx = spd; player.facing = 1; }
+  else player.vx *= 0.8;
+
+  if (keys[' '] && player.grounded) { player.vy = -11; player.grounded = false; }
+
+  if (keys['j']) playerAttack();
+  if (keys['u']) useSkill('u');
+  if (keys['i']) useSkill('i');
+  if (keys['o']) useSkill('o');
+
+  // Update player
+  applyPhysics(player);
+  player.x = Math.max(0, Math.min(worldWidth - player.w, player.x));
+
+  // Attack timer
+  if (player.attackTimer > 0) {
+    player.attackTimer--;
+    if (player.attackTimer <= 0) player.attacking = false;
+  }
+  // Invincibility
+  if (player.invincible > 0) player.invincible--;
+  // Skill cooldowns
+  ['u','i','o'].forEach(k => {
+    if (player.skillCooldowns[k] > 0) player.skillCooldowns[k]--;
+  });
+  // MP regen
+  player.mp = Math.min(player.maxMp, player.mp + 0.05);
+
+  // Update enemies
+  enemies.forEach(e => {
+    // AI
+    const dx = player.x - e.x;
+    const dist = Math.abs(dx);
+    if (dist < 350 && player.y + player.h > e.y - 50 && player.y < e.y + e.h + 50) {
+      if (dx < -30) e.vx = -e.spd;
+      else if (dx > 30) e.vx = e.spd;
+      else e.vx *= 0.8;
+      // Attack player
+      if (dist < 55 && Math.random() < 0.015 && player.invincible <= 0) {
+        const dmg = Math.max(1, e.atk - player.def);
+        player.hp -= dmg;
+        player.invincible = 30;
+        player.vx = (e.x > player.x ? -1 : 1) * 5;
+        player.vy = -5;
+        damageNumbers.push({ x:player.x+player.w/2, y:player.y, text:dmg, life:25, maxLife:25, crit:false });
+        screenShake = 3;
+        if (player.hp <= 0) playerDie();
+      }
+    } else {
+      e.vx *= 0.9;
+    }
+    e.vx = Math.max(-3, Math.min(3, e.vx));
+    applyPhysics(e);
+    e.x = Math.max(0, Math.min(worldWidth - e.w, e.x));
+  });
+
+  // Camera
+  const targetCX = player.x - W/2 + player.w/2;
+  cameraX += (targetCX - cameraX) * 0.1;
+  cameraX = Math.max(0, Math.min(worldWidth - W, cameraX));
+
+  // Screen shake decay
+  if (screenShake > 0) screenShake *= 0.85;
+  if (screenShake < 0.1) screenShake = 0;
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+
+  // Screen shake
+  if (screenShake > 0) {
+    ctx.translate((Math.random()-0.5)*screenShake*2, (Math.random()-0.5)*screenShake*2);
+  }
+
+  drawSky();
+  drawBgBuildings();
+  drawGround();
+  drawPlatforms();
+  drawEnemies();
+  drawPlayer();
+  drawParticles();
+  drawDamageNumbers();
+
+  ctx.restore();
+
+  // HUD (fixed position)
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(8, 8, 200, 45);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px "Microsoft YaHei"';
+  ctx.fillText(`HP ${Math.ceil(player.hp)}/${player.maxHp}`, 16, 28);
+  ctx.fillText(`MP ${Math.ceil(player.mp)}/${player.maxMp}`, 120, 28);
+  ctx.font = '9px "Microsoft YaHei"';
+  ctx.fillText('B:背包 E:装备', 16, 48);
+
+  // Boss HP bar (if boss alive)
+  const boss = enemies.find(e => e.type === 'boss');
+  if (boss) {
+    const bw = 300, bh = 14;
+    const bx = W/2 - bw/2, by = 18;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(bx-2, by-2, bw+4, bh+4);
+    ctx.fillStyle = '#4a0a0a';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(bx, by, bw * (boss.hp/boss.maxHp), bh);
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px "Microsoft YaHei"';
+    ctx.textAlign = 'center';
+    ctx.fillText(boss.name, W/2, by+12);
+    ctx.textAlign = 'start';
+  }
+
+  // Update skill cooldown UI
+  ['u','i','o'].forEach(k => {
+    const cdFill = document.getElementById('cd'+k.toUpperCase());
+    const skill = SKILLS[k];
+    const pct = player.skillCooldowns[k] / skill.cd;
+    cdFill.style.width = (100 - pct * 100) + '%';
+    const btn = document.getElementById('sk'+k.toUpperCase());
+    if (player.skillCooldowns[k] > 0 || player.mp < skill.cost) {
+      btn.classList.add('on-cooldown');
+    } else {
+      btn.classList.remove('on-cooldown');
+    }
+  });
+
+  requestAnimationFrame(gameLoop);
+}
+
+function gameLoop() {
+  update();
+  render();
+}
+
+// ==================== INIT ====================
+renderBackpack();
+renderEquip();
+// Click buttons for mobile
+document.getElementById('skJ').addEventListener('click', ()=>playerAttack());
+document.getElementById('skU').addEventListener('click', ()=>useSkill('u'));
+document.getElementById('skI').addEventListener('click', ()=>useSkill('i'));
+document.getElementById('skO').addEventListener('click', ()=>useSkill('o'));
+
+requestAnimationFrame(gameLoop);
+console.log('⚔ 山东科技大学之战 - Ready!');
+console.log('A/D移动 | 空格跳跃 | J普攻 | U火焰斩 | I旋风斩 | O天雷降 | B背包 | E装备');
+</script>
+</body>
+</html>
