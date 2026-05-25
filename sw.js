@@ -1,7 +1,7 @@
 const CACHE = 'fitmate-v1';
 const FILES = [
   '.',
-  'fitness.html',
+  'index.html',
   'manifest.json',
   'icon.svg'
 ];
