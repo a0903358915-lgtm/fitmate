@@ -1,0 +1,13 @@
+{
+  "name": "原老大的健身记录",
+  "short_name": "健身记录",
+  "description": "HIIT计时、训练记录、动作库、体测、打卡——原老大的随身健身助手",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0f0f",
+  "theme_color": "#ff4757",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
